@@ -1,0 +1,10 @@
+[Interface]
+Address = 10.8.0.1/24
+ListenPort = {{.Port}}
+PrivateKey = {{.PrivateKey}}
+PostUp = iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE
+{{range .Peers}}
+[Peer]
+PublicKey = {{.PublicKey}}
+AllowedIPs = {{.Address}}/32
+{{end}}

@@ -1,0 +1,50 @@
+[tools]
+go = "1.27"
+pulumi = "3.267"
+
+# Local state for this project only; leaves the global `pulumi login` untouched.
+[env]
+PULUMI_BACKEND_URL = "file://~"
+
+[tasks.init]
+description = "Create india stack and store DigitalOcean token"
+run = [
+  "pulumi stack init india",
+  "pulumi config set digitalocean:token --secret",
+]
+
+[tasks.check]
+description = "Verify DO token and droplet size without creating anything"
+run = "pulumi preview"
+
+[tasks.up]
+description = "Create the VPN droplet and write india.conf"
+run = "pulumi up -y"
+depends_post = ["mac"]
+
+[tasks.down]
+description = "Destroy the VPN droplet"
+run = "pulumi destroy --refresh -y"
+
+# pulumi won't prompt when its output is redirected, so these tasks ask first.
+[tasks.mac]
+description = "Write india.conf; import it in the WireGuard app"
+shell = "bash -c"
+run = '''
+[ -n "${PULUMI_CONFIG_PASSPHRASE:-}${PULUMI_CONFIG_PASSPHRASE_FILE:-}" ] || { read -rsp "Pulumi passphrase: " PULUMI_CONFIG_PASSPHRASE; echo; export PULUMI_CONFIG_PASSPHRASE; }
+conf=$(pulumi stack output mac --show-secrets) || exit 1
+umask 077; printf '%s\n' "$conf" > india.conf
+echo "wrote india.conf"
+'''
+
+[tasks.qr]
+description = "Phone config as QR code (needs: brew install qrencode)"
+shell = "bash -c"
+run = '''
+[ -n "${PULUMI_CONFIG_PASSPHRASE:-}${PULUMI_CONFIG_PASSPHRASE_FILE:-}" ] || { read -rsp "Pulumi passphrase: " PULUMI_CONFIG_PASSPHRASE; echo; export PULUMI_CONFIG_PASSPHRASE; }
+conf=$(pulumi stack output phone --show-secrets) || exit 1
+printf '%s\n' "$conf" | qrencode -t ansiutf8
+'''
+
+[tasks.test]
+run = "go vet ./... && go test ./..."

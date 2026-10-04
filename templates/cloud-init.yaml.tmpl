@@ -1,0 +1,13 @@
+#cloud-config
+packages: [wireguard-tools, iptables]
+write_files:
+  - path: /etc/sysctl.d/99-wireguard.conf
+    content: net.ipv4.ip_forward=1
+  # Base64 so the multi-line config needs no YAML indentation.
+  - path: /etc/wireguard/wg0.conf
+    permissions: "0600"
+    encoding: b64
+    content: {{.ServerConfBase64}}
+runcmd:
+  - sysctl --system
+  - systemctl enable --now wg-quick@wg0
